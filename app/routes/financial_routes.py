@@ -1,13 +1,20 @@
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, status, Query
+from typing import Optional
+from datetime import date
 from sqlalchemy.orm import Session
 from app.db.deps import get_db
-from app.schemas.financial_record import RecordCreate, RecordResponse, RecordUpdate
+from app.schemas.financial_record import (
+    RecordCreate,
+    RecordResponse,
+    RecordUpdate,
+    RecordType,
+)
 from app.schemas.user import UserRole
 from app.services.financial_service import (
     create_record,
-    get_records,
     update_record,
     delete_record,
+    get_filtered_records,
 )
 from app.core.dependencies import require_roles
 
@@ -19,39 +26,46 @@ router = APIRouter(prefix="/records", tags=["Financial Records"])
     "/",
     response_model=RecordResponse,
     status_code=status.HTTP_201_CREATED,
-    summary="Create financial record (Admin only)",
 )
 def create_record_api(
     record: RecordCreate,
     db: Session = Depends(get_db),
     role: UserRole = Depends(require_roles([UserRole.admin])),
 ):
-    # since no auth system
     user_id = 1
     return create_record(db, record, user_id)
 
 
-# Read → All roles
+# GET + FILTER
 @router.get(
     "/",
     response_model=list[RecordResponse],
     status_code=status.HTTP_200_OK,
-    summary="Get financial records",
 )
 def get_records_api(
     db: Session = Depends(get_db),
     role: UserRole = Depends(require_roles(list(UserRole))),
+    type: Optional[RecordType] = Query(None),
+    category: Optional[str] = Query(None),
+    start_date: Optional[date] = Query(None),
+    end_date: Optional[date] = Query(None),
 ):
     user_id = 1
-    return get_records(db, user_id)
+
+    return get_filtered_records(
+        db=db,
+        user_id=user_id,
+        type=type,
+        category=category,
+        start_date=start_date,
+        end_date=end_date,
+    )
 
 
 # Update → Admin only
 @router.put(
     "/{record_id}",
     response_model=RecordResponse,
-    status_code=status.HTTP_200_OK,
-    summary="Update financial record (Admin only)",
 )
 def update_record_api(
     record_id: int,
@@ -63,11 +77,7 @@ def update_record_api(
 
 
 # Delete → Admin only
-@router.delete(
-    "/{record_id}",
-    status_code=status.HTTP_200_OK,
-    summary="Delete financial record (Admin only)",
-)
+@router.delete("/{record_id}")
 def delete_record_api(
     record_id: int,
     db: Session = Depends(get_db),
