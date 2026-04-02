@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import Annotated
+from typing import Annotated, Optional
 from enum import Enum
 
 
@@ -17,6 +17,7 @@ RoleType = Annotated[
     UserRole, Field(..., description="User role (admin, analyst, viewer)")
 ]
 IdType = Annotated[int, Field(..., description="User ID")]
+IsActiveType = Annotated[bool, Field(default=True, description="User active status")]
 
 
 class UserCreate(BaseModel):
@@ -24,11 +25,17 @@ class UserCreate(BaseModel):
     role: RoleType
 
 
+class UserUpdate(BaseModel):
+    name: Optional[NameType] = None
+    role: Optional[RoleType] = None
+    is_active: Optional[bool] = None
+
+
 class UserResponse(BaseModel):
     id: IdType
     name: NameType
     role: RoleType
-    is_active: bool
+    is_active: IsActiveType
 
     class Config:
         from_attributes = True
