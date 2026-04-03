@@ -3,8 +3,7 @@ from fastapi import HTTPException, status
 from typing import Optional
 from datetime import date
 from app.models.financial_record import FinancialRecord
-from app.schemas.financial_record import RecordCreate, RecordUpdate
-from app.schemas.financial_record import RecordType
+from app.schemas.financial_record import RecordCreate, RecordUpdate, RecordType
 
 
 # Create record
@@ -17,14 +16,17 @@ def create_record(db: Session, data: RecordCreate, user_id: int):
             FinancialRecord.user_id == user_id,
             FinancialRecord.amount == data.amount,
             FinancialRecord.type == data.type,
-            FinancialRecord.category == data.category,
+            FinancialRecord.category.ilike(data.category),  # case-insensitive
             FinancialRecord.date == data.date,
         )
         .first()
     )
 
     if existing_record:
-        raise HTTPException(status_code=409, detail="Duplicate record already exists")
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Duplicate record already exists",
+        )
 
     try:
         record = FinancialRecord(
@@ -44,22 +46,37 @@ def create_record(db: Session, data: RecordCreate, user_id: int):
     except Exception:
         db.rollback()
         raise HTTPException(
-            status_code=500, detail="Something went wrong while creating record"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Something went wrong while creating record",
         )
 
 
-# Get records (user specific)
+# Get records (no filters)
 def get_records(db: Session, user_id: int):
-    return db.query(FinancialRecord).filter(FinancialRecord.user_id == user_id).all()
+    return (
+        db.query(FinancialRecord)
+        .filter(FinancialRecord.user_id == user_id)
+        .order_by(FinancialRecord.date.desc())
+        .all()
+    )
 
 
 # Update record
-def update_record(db: Session, record_id: int, data: RecordUpdate):
+def update_record(db: Session, record_id: int, data: RecordUpdate, user_id: int):
+
     record = db.query(FinancialRecord).filter(FinancialRecord.id == record_id).first()
 
     if not record:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Record not found"
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Record not found",
+        )
+
+    # ownership check
+    if record.user_id != user_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to update this record",
         )
 
     try:
@@ -80,12 +97,21 @@ def update_record(db: Session, record_id: int, data: RecordUpdate):
 
 
 # Delete record
-def delete_record(db: Session, record_id: int):
+def delete_record(db: Session, record_id: int, user_id: int):
+
     record = db.query(FinancialRecord).filter(FinancialRecord.id == record_id).first()
 
     if not record:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Record not found"
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Record not found",
+        )
+
+    # ownership check
+    if record.user_id != user_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to delete this record",
         )
 
     try:
@@ -101,7 +127,7 @@ def delete_record(db: Session, record_id: int):
         )
 
 
-# Filtering records
+# Filter records
 def get_filtered_records(
     db: Session,
     user_id: int,
@@ -110,15 +136,25 @@ def get_filtered_records(
     start_date: Optional[date] = None,
     end_date: Optional[date] = None,
 ):
-    # user-specific data
+
+    # base query
     query = db.query(FinancialRecord).filter(FinancialRecord.user_id == user_id)
+
+    # invalid date range
+    if start_date and end_date and start_date > end_date:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="start_date cannot be greater than end_date",
+        )
 
     # filters
     if type:
         query = query.filter(FinancialRecord.type == type)
 
     if category:
-        query = query.filter(FinancialRecord.category == category)
+        query = query.filter(
+            FinancialRecord.category.ilike(category)  # case-insensitive
+        )
 
     if start_date:
         query = query.filter(FinancialRecord.date >= start_date)
@@ -126,11 +162,8 @@ def get_filtered_records(
     if end_date:
         query = query.filter(FinancialRecord.date <= end_date)
 
-    # for invalid date range
-    if start_date and end_date and start_date > end_date:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="start_date cannot be greater than end_date",
-        )
-
-    return query.all()
+    # sorting (latest first)
+    return query.order_by(
+        FinancialRecord.date.desc(),
+        FinancialRecord.id.desc(),
+    ).all()

@@ -30,10 +30,10 @@ router = APIRouter(prefix="/records", tags=["Financial Records"])
 def create_record_api(
     record: RecordCreate,
     db: Session = Depends(get_db),
-    role: UserRole = Depends(require_roles([UserRole.admin])),
+    user: dict = Depends(require_roles([UserRole.admin])),
 ):
-    user = Depends(require_roles([UserRole.admin]))
-    return create_record(db, record, user.id)
+
+    return create_record(db, record, user["id"])
 
 
 # GET + FILTER
@@ -44,17 +44,15 @@ def create_record_api(
 )
 def get_records_api(
     db: Session = Depends(get_db),
-    role: UserRole = Depends(require_roles(list(UserRole))),
+    user: dict = Depends(require_roles(list(UserRole))),
     type: Optional[RecordType] = Query(None),
     category: Optional[str] = Query(None),
     start_date: Optional[date] = Query(None),
     end_date: Optional[date] = Query(None),
 ):
-    user = Depends(require_roles(list(UserRole)))
-
     return get_filtered_records(
         db=db,
-        user_id=user.id,
+        user_id=user["id"],
         type=type,
         category=category,
         start_date=start_date,
@@ -71,10 +69,9 @@ def update_record_api(
     record_id: int,
     record: RecordUpdate,
     db: Session = Depends(get_db),
-    role: UserRole = Depends(require_roles([UserRole.admin])),
+    user: dict = Depends(require_roles([UserRole.admin])),
 ):
-    user = Depends(require_roles([UserRole.admin]))
-    return update_record(db, record_id, record, user.id)
+    return update_record(db, record_id, record, user["id"])
 
 
 # Delete → Admin only
@@ -82,7 +79,6 @@ def update_record_api(
 def delete_record_api(
     record_id: int,
     db: Session = Depends(get_db),
-    role: UserRole = Depends(require_roles([UserRole.admin])),
+    user: dict = Depends(require_roles([UserRole.admin])),
 ):
-    user = Depends(require_roles([UserRole.admin]))
-    return delete_record(db, record_id, user.id)
+    return delete_record(db, record_id, user["id"])

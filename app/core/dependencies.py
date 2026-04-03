@@ -15,7 +15,10 @@ def get_current_role(x_role: str = Header(...)):
             status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid role provided"
         )
 
-    return role
+    return {
+        "id": 1,  # future me DB se aayega
+        "role": role,
+    }
 
 
 def require_roles(allowed_roles: list[UserRole]):
@@ -32,6 +35,6 @@ def require_roles(allowed_roles: list[UserRole]):
                 status_code=status.HTTP_403_FORBIDDEN, detail="Access denied"
             )
 
-        return role
+        return {"id": 1, "role": role}
 
     return role_checker
