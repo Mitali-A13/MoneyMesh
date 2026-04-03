@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, EmailStr
 from typing import Annotated, Optional
 from enum import Enum
 
@@ -13,16 +13,32 @@ class UserRole(str, Enum):
 NameType = Annotated[
     str, Field(..., min_length=2, max_length=50, description="User name")
 ]
+
+EmailType = Annotated[EmailStr, Field(..., description="User email")]
+
+PasswordType = Annotated[str, Field(..., min_length=6, description="User password")]
+
 RoleType = Annotated[
     UserRole, Field(..., description="User role (admin, analyst, viewer)")
 ]
+
 IdType = Annotated[int, Field(..., description="User ID")]
+
 IsActiveType = Annotated[bool, Field(default=True, description="User active status")]
 
 
+# register schema
 class UserCreate(BaseModel):
     name: NameType
+    email: EmailType
+    password: PasswordType
     role: RoleType
+
+
+# login schema
+class UserLogin(BaseModel):
+    email: EmailType
+    password: PasswordType
 
 
 class UserUpdate(BaseModel):
@@ -34,6 +50,7 @@ class UserUpdate(BaseModel):
 class UserResponse(BaseModel):
     id: IdType
     name: NameType
+    email: EmailType
     role: RoleType
     is_active: IsActiveType
 

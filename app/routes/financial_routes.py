@@ -17,34 +17,26 @@ from app.services.financial_service import (
     get_filtered_records,
 )
 from app.core.dependencies import require_roles
+from app.models.user import User
 
 router = APIRouter(prefix="/records", tags=["Financial Records"])
 
 
 # Create → Admin only
-@router.post(
-    "/",
-    response_model=RecordResponse,
-    status_code=status.HTTP_201_CREATED,
-)
+@router.post("/", response_model=RecordResponse, status_code=status.HTTP_201_CREATED)
 def create_record_api(
     record: RecordCreate,
     db: Session = Depends(get_db),
-    user: dict = Depends(require_roles([UserRole.admin])),
+    current_user: User = Depends(require_roles([UserRole.admin])),
 ):
+    return create_record(db, record, current_user.id)
 
-    return create_record(db, record, user["id"])
 
-
-# GET + FILTER
-@router.get(
-    "/",
-    response_model=list[RecordResponse],
-    status_code=status.HTTP_200_OK,
-)
+# GET + FILTER (User-specific)
+@router.get("/", response_model=list[RecordResponse])
 def get_records_api(
     db: Session = Depends(get_db),
-    user: dict = Depends(require_roles(list(UserRole))),
+    current_user: User = Depends(require_roles(list(UserRole))),
     type: Optional[RecordType] = Query(None),
     category: Optional[str] = Query(None),
     start_date: Optional[date] = Query(None),
@@ -52,7 +44,7 @@ def get_records_api(
 ):
     return get_filtered_records(
         db=db,
-        user_id=user["id"],
+        user_id=current_user.id,
         type=type,
         category=category,
         start_date=start_date,
@@ -61,17 +53,14 @@ def get_records_api(
 
 
 # Update → Admin only
-@router.put(
-    "/{record_id}",
-    response_model=RecordResponse,
-)
+@router.put("/{record_id}", response_model=RecordResponse)
 def update_record_api(
     record_id: int,
     record: RecordUpdate,
     db: Session = Depends(get_db),
-    user: dict = Depends(require_roles([UserRole.admin])),
+    current_user: User = Depends(require_roles([UserRole.admin])),
 ):
-    return update_record(db, record_id, record, user["id"])
+    return update_record(db, record_id, record, current_user.id)
 
 
 # Delete → Admin only
@@ -79,6 +68,6 @@ def update_record_api(
 def delete_record_api(
     record_id: int,
     db: Session = Depends(get_db),
-    user: dict = Depends(require_roles([UserRole.admin])),
+    current_user: User = Depends(require_roles([UserRole.admin])),
 ):
-    return delete_record(db, record_id, user["id"])
+    return delete_record(db, record_id, current_user.id)

@@ -6,6 +6,13 @@ class User(Base):
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True, index=True)
+
     name = Column(String, nullable=False)
-    role = Column(String, nullable=False)  # viewer, analyst, admin
+
+    email = Column(String, unique=True, index=True, nullable=False)  # login field
+
+    hashed_password = Column(String, nullable=False)  # secure password
+
+    role = Column(String, nullable=False)
+
     is_active = Column(Boolean, default=True)
