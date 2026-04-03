@@ -32,8 +32,8 @@ def create_record_api(
     db: Session = Depends(get_db),
     role: UserRole = Depends(require_roles([UserRole.admin])),
 ):
-    user_id = 1
-    return create_record(db, record, user_id)
+    user = Depends(require_roles([UserRole.admin]))
+    return create_record(db, record, user.id)
 
 
 # GET + FILTER
@@ -50,11 +50,11 @@ def get_records_api(
     start_date: Optional[date] = Query(None),
     end_date: Optional[date] = Query(None),
 ):
-    user_id = 1
+    user = Depends(require_roles(list(UserRole)))
 
     return get_filtered_records(
         db=db,
-        user_id=user_id,
+        user_id=user.id,
         type=type,
         category=category,
         start_date=start_date,
@@ -73,7 +73,8 @@ def update_record_api(
     db: Session = Depends(get_db),
     role: UserRole = Depends(require_roles([UserRole.admin])),
 ):
-    return update_record(db, record_id, record)
+    user = Depends(require_roles([UserRole.admin]))
+    return update_record(db, record_id, record, user.id)
 
 
 # Delete → Admin only
@@ -83,4 +84,5 @@ def delete_record_api(
     db: Session = Depends(get_db),
     role: UserRole = Depends(require_roles([UserRole.admin])),
 ):
-    return delete_record(db, record_id)
+    user = Depends(require_roles([UserRole.admin]))
+    return delete_record(db, record_id, user.id)
